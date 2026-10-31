@@ -20,4 +20,20 @@ defmodule Auction do
       end
     end
 
+    def validate_creation_params( product_name, price, duration) do
+      cond do
+        not is_binary(product_name) ->
+          {:error, :invalid_product}
+        String.trim(product_name) == "" ->
+          {:error, :invalid_product}
+
+        not is_integer(price) or price <= 0 ->
+          {:error, :invalid_price}
+
+        not is_integer(duration) or duration <= 0 ->
+          {:error, :invalid_duration}
+        true ->
+          :ok
+        end
+      end
 end

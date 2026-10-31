@@ -1,7 +1,6 @@
 defmodule Admin do
   def start_server do
     initial_state = %{auctions: %{}, next_id: 1}
-
     spawn(fn -> loop(initial_state) end)
   end
 
@@ -10,11 +9,27 @@ defmodule Admin do
       {:ping, requester} ->
         send(requester, :pong)
         loop(state)
+
       {:create_auction, requester, product_name, price, duration} ->
-        auction_id = state.next_id
-        auction_pid = Auction.start(auction_id, product_name, price, duration)
-        send(requester, {:ok, auction_id})
-        loop(state)
+
+        case Auction.validate_creation_params(product_name, price, duration) do
+         :ok ->
+          auction_id = state.next_id
+          auction_pid = Auction.start(auction_id, product_name, price, duration)
+          updated_auctions = Map.put(state.auctions, auction_id, auction_pid)
+
+          new_state = %{
+            state
+            | auctions: updated_auctions,
+            next_id: state.next_id + 1
+          }
+          send(requester, {:ok, auction_id})
+          loop(new_state)
+
+          {:error, reason} ->
+            send(requester, {:error, reason})
+            loop(state)
+        end
     end
   end
 
