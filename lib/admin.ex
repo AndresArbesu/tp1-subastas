@@ -27,7 +27,6 @@ defmodule Admin do
 
         loop(state)
 
-
       {:create_auction, requester, product_name, price, duration} ->
         case Auction.validate_creation_params(product_name, price, duration) do
           :ok ->
@@ -91,7 +90,6 @@ defmodule Admin do
     end
   end
 
-
   def consult_auction(admin_pid, auction_id) do
     case resolve_auction(admin_pid, auction_id) do
       {:ok, auction_pid} ->
@@ -111,7 +109,6 @@ defmodule Admin do
         {:error, reason}
     end
   end
-
 
   defp get_auction_directory(admin_pid) do
     request_ref = make_ref()

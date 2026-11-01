@@ -13,7 +13,8 @@ defmodule Auction do
         expires_at: started_at + duration,
         status: :active,
         highest_bid: nil,
-        accepted_bids_count: 0
+        accepted_bids_count: 0,
+        result: nil
       }
 
       Process.send_after(self(), :auction_expired, duration)
@@ -57,7 +58,7 @@ defmodule Auction do
         loop(state)
 
       :auction_expired ->
-        new_state = %{state | status: :closed}
+        new_state = close_if_expired(state)
         loop(new_state)
 
       {:get_status, requester} ->
@@ -149,15 +150,26 @@ defmodule Auction do
     end
   end
 
+  defp close_auction(state) do
+    result =
+      case state.highest_bid do
+        nil ->
+          %{winner: nil, final_price: nil}
+
+        %{user: user, amount: amount} ->
+          %{winner: user, final_price: amount}
+      end
+
+    %{state | status: :closed, result: result}
+  end
 
   defp close_if_expired(state) do
     now = System.monotonic_time(:millisecond)
 
     if state.status == :active and now >= state.expires_at do
-      %{state | status: :closed}
+      close_auction(state)
     else
       state
     end
   end
-
 end
