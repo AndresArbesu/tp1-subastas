@@ -24,6 +24,7 @@ defmodule CLI do
               active
               create "PRODUCT" INITIAL_PRICE DURATION_MS
               show AUCTION_ID
+              bid AUCTION_ID USER AMOUNT
               exit
             """)
             loop(admin_pid)
@@ -101,7 +102,24 @@ defmodule CLI do
             end
 
             loop(admin_pid)
-          _command ->
+          ["bid", auction_id_text, user, amount_text] ->
+            case {Integer.parse(auction_id_text), Integer.parse(amount_text)} do
+              {{auction_id, ""}, {amount, ""}} ->
+                case AuctionClient.place_bid(admin_pid, auction_id, user, amount) do
+                  {:ok, :bid_accepted} ->
+                    IO.puts("Bid accepted.")
+
+                  {:error, reason} ->
+                    IO.puts("Error: #{inspect(reason)}")
+                end
+
+              _ ->
+                IO.puts("Error: auction ID and amount must be integers.")
+            end
+
+            loop(admin_pid)
+
+            _command ->
             IO.puts("Unknown command. Type help.")
             loop(admin_pid)
         end
