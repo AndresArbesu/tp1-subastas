@@ -16,18 +16,25 @@ defmodule CLI do
         :ok
 
       line ->
-        case String.trim(line) do
-          "help" ->
-            IO.puts("Commands: help, active, exit")
+      case split_command(line) do
+          ["help"] ->
+            IO.puts("""
+            Commands:
+              help
+              active
+              create "PRODUCT" INITIAL_PRICE DURATION_MS
+              show AUCTION_ID
+              exit
+            """)
             loop(admin_pid)
 
-          "exit" ->
+          ["exit"] ->
             :ok
 
-          "" ->
+          [] ->
             loop(admin_pid)
 
-          "active" ->
+          ["active"] ->
             case AuctionClient.list_active_auctions(admin_pid) do
               {:ok, []} ->
                 IO.puts("No active auctions.")
@@ -52,11 +59,61 @@ defmodule CLI do
 
             loop(admin_pid)
 
+          ["create", product_name, price_text, duration_text] ->
+            case {Integer.parse(price_text), Integer.parse(duration_text)} do
+              {{price, ""}, {duration, ""}} ->
+                AuctionClient.create_auction(
+                  admin_pid,
+                  product_name,
+                  price,
+                  duration
+                )
 
+                receive do
+                  {:ok, auction_id} ->
+                    IO.puts("Created auction #{auction_id}.")
+
+                  {:error, reason} ->
+                    IO.puts("Error: #{inspect(reason)}")
+                after
+                  3_000 ->
+                    IO.puts("Error: creation response timed out; outcome unknown.")
+                end
+
+              _ ->
+                IO.puts("Error: price and duration must be integers.")
+            end
+
+            loop(admin_pid)
+          ["show", auction_id_text] ->
+            case Integer.parse(auction_id_text) do
+              {auction_id, ""} ->
+                case AuctionClient.consult_auction(admin_pid, auction_id) do
+                  {:ok, info} ->
+                    IO.inspect(info, label: "Auction", pretty: true)
+
+                  {:error, reason} ->
+                    IO.puts("Error: #{inspect(reason)}")
+                end
+
+              _ ->
+                IO.puts("Error: auction ID must be an integer.")
+            end
+
+            loop(admin_pid)
           _command ->
             IO.puts("Unknown command. Type help.")
             loop(admin_pid)
         end
     end
+  end
+
+  defp split_command(line) do
+  line
+  |> String.trim()
+  |> OptionParser.split()
+  rescue
+    ArgumentError ->
+      :invalid_command
   end
 end
