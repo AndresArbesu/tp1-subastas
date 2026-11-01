@@ -22,6 +22,21 @@ defmodule Auction do
     end)
   end
 
+  def consult(auction_pid) do
+    request_ref = make_ref()
+
+    send(auction_pid, {:consult, self(), request_ref})
+
+    receive do
+      {^request_ref, response} ->
+        response
+    after
+      2_000 ->
+        {:error, :timeout}
+    end
+  end
+
+
   defp loop(state) do
     receive do
       {:ping, requester} ->
@@ -34,6 +49,10 @@ defmodule Auction do
 
       {:get_status, requester} ->
         send(requester, {:status, state.status})
+        loop(state)
+
+      {:consult, requester, request_ref} ->
+        send(requester, {request_ref, {:ok, state}})
         loop(state)
     end
   end

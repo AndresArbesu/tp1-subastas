@@ -10,6 +10,18 @@ defmodule Admin do
         send(requester, :pong)
         loop(state)
 
+      {:resolve_auction, requester, request_ref, auction_id} ->
+        case Map.fetch(state.auctions, auction_id) do
+          {:ok, auction_pid} ->
+            send(requester, {request_ref, {:ok, auction_pid}})
+
+          :error ->
+            send(requester, {request_ref, {:error, :auction_not_found}})
+        end
+
+        loop(state)
+
+
       {:create_auction, requester, product_name, price, duration} ->
         case Auction.validate_creation_params(product_name, price, duration) do
           :ok ->
@@ -55,4 +67,34 @@ defmodule Admin do
   def create_auction(admin_pid, product_name, price, duration) do
     send(admin_pid, {:create_auction, self(), product_name, price, duration})
   end
+
+  defp resolve_auction(admin_pid, auction_id) do
+  request_ref = make_ref()
+
+  send(
+    admin_pid,
+    {:resolve_auction, self(), request_ref, auction_id}
+  )
+
+  receive do
+    {^request_ref, response} ->
+      response
+  after
+    2_000 ->
+      {:error, :timeout}
+  end
+end
+
+
+  def consult_auction(admin_pid, auction_id) do
+    case resolve_auction(admin_pid, auction_id) do
+      {:ok, auction_pid} ->
+        Auction.consult(auction_pid)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+
 end
