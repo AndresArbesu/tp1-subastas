@@ -75,21 +75,21 @@ defmodule Admin do
   end
 
   defp resolve_auction(admin_pid, auction_id) do
-  request_ref = make_ref()
+    request_ref = make_ref()
 
-  send(
-    admin_pid,
-    {:resolve_auction, self(), request_ref, auction_id}
-  )
+    send(
+      admin_pid,
+      {:resolve_auction, self(), request_ref, auction_id}
+    )
 
-  receive do
-    {^request_ref, response} ->
-      response
-  after
-    2_000 ->
-      {:error, :timeout}
+    receive do
+      {^request_ref, response} ->
+        response
+    after
+      2_000 ->
+        {:error, :timeout}
+    end
   end
-end
 
 
   def consult_auction(admin_pid, auction_id) do
@@ -101,6 +101,17 @@ end
         {:error, reason}
     end
   end
+
+  def place_bid(admin_pid, auction_id, user, amount) do
+    case resolve_auction(admin_pid, auction_id) do
+      {:ok, auction_pid} ->
+        Auction.place_bid(auction_pid, user, amount)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
 
   defp get_auction_directory(admin_pid) do
     request_ref = make_ref()
@@ -138,7 +149,4 @@ end
         {:error, reason}
     end
   end
-
-
-
 end

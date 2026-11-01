@@ -36,6 +36,19 @@ defmodule Auction do
     end
   end
 
+  def place_bid(auction_pid, user, amount) do
+    request_ref = make_ref()
+
+    send(auction_pid, {:place_bid, self(), request_ref, user, amount})
+
+    receive do
+      {^request_ref, response} ->
+        response
+    after
+      2_000 ->
+        {:error, :timeout}
+    end
+  end
 
   defp loop(state) do
     receive do
@@ -58,6 +71,13 @@ defmodule Auction do
 
         send(requester, {request_ref, {:ok, updated_state}})
         loop(updated_state)
+
+      {:place_bid, requester, request_ref, user, amount} ->
+        current_state = close_if_expired(state)
+        {response, next_state} = apply_bid(current_state, user, amount)
+
+        send(requester, {request_ref, response})
+        loop(next_state)
     end
   end
 
@@ -79,6 +99,56 @@ defmodule Auction do
         :ok
     end
   end
+
+  def validate_bid_params(user, amount) do
+    cond do
+      not is_binary(user) ->
+        {:error, :invalid_user}
+
+      String.trim(user) == "" ->
+        {:error, :invalid_user}
+
+      not is_integer(amount) or amount <= 0 ->
+        {:error, :invalid_amount}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp apply_bid(%{status: :closed} = state, _user, _amount) do
+    {{:error, :auction_closed}, state}
+  end
+
+  defp apply_bid(state, user, amount) do
+    case validate_bid_params(user, amount) do
+      :ok ->
+        reference =
+          case state.highest_bid do
+            nil ->
+              state.initial_price
+
+            %{amount: highest_amount} ->
+              highest_amount
+          end
+
+        if amount > reference do
+          updated_state = %{
+            state
+            | highest_bid: %{user: user, amount: amount},
+              accepted_bids_count: state.accepted_bids_count + 1
+          }
+
+          {{:ok, :bid_accepted}, updated_state}
+        else
+          {{:error, {:bid_too_low, reference}}, state}
+        end
+
+      {:error, reason} ->
+        {{:error, reason}, state}
+    end
+  end
+
 
   defp close_if_expired(state) do
     now = System.monotonic_time(:millisecond)
