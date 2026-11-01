@@ -48,12 +48,16 @@ defmodule Auction do
         loop(new_state)
 
       {:get_status, requester} ->
-        send(requester, {:status, state.status})
-        loop(state)
+        updated_state = close_if_expired(state)
+
+        send(requester, {:status, updated_state.status})
+        loop(updated_state)
 
       {:consult, requester, request_ref} ->
-        send(requester, {request_ref, {:ok, state}})
-        loop(state)
+        updated_state = close_if_expired(state)
+
+        send(requester, {request_ref, {:ok, updated_state}})
+        loop(updated_state)
     end
   end
 
@@ -75,4 +79,15 @@ defmodule Auction do
         :ok
     end
   end
+
+  defp close_if_expired(state) do
+    now = System.monotonic_time(:millisecond)
+
+    if state.status == :active and now >= state.expires_at do
+      %{state | status: :closed}
+    else
+      state
+    end
+  end
+
 end
