@@ -10,6 +10,12 @@ defmodule Admin do
         send(requester, :pong)
         loop(state)
 
+      {:get_auction_directory, requester, request_ref} ->
+        directory = Map.to_list(state.auctions)
+
+        send(requester, {request_ref, {:ok, directory}})
+        loop(state)
+
       {:resolve_auction, requester, request_ref, auction_id} ->
         case Map.fetch(state.auctions, auction_id) do
           {:ok, auction_pid} ->
@@ -95,6 +101,44 @@ end
         {:error, reason}
     end
   end
+
+  defp get_auction_directory(admin_pid) do
+    request_ref = make_ref()
+
+    send(admin_pid, {:get_auction_directory, self(), request_ref})
+
+    receive do
+      {^request_ref, response} ->
+        response
+    after
+      2_000 ->
+        {:error, :timeout}
+    end
+  end
+
+  def list_active_auctions(admin_pid) do
+    case get_auction_directory(admin_pid) do
+      {:ok, directory} ->
+        Enum.reduce_while(directory, {:ok, []}, fn
+          {_auction_id, auction_pid}, {:ok, summaries} ->
+            case Auction.consult(auction_pid) do
+              {:ok, %{status: :active} = info} ->
+                summary = Map.take(info, [:id, :product_name, :highest_bid])
+                {:cont, {:ok, [summary | summaries]}}
+
+              {:ok, %{status: :closed}} ->
+                {:cont, {:ok, summaries}}
+
+              {:error, reason} ->
+                {:halt, {:error, reason}}
+            end
+        end)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
 
 
 end
