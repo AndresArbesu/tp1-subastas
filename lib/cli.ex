@@ -16,7 +16,7 @@ defmodule CLI do
         :ok
 
       line ->
-      case split_command(line) do
+        case split_command(line) do
           ["help"] ->
             IO.puts("""
             Commands:
@@ -27,6 +27,7 @@ defmodule CLI do
               bid AUCTION_ID USER AMOUNT
               exit
             """)
+
             loop(admin_pid)
 
           ["exit"] ->
@@ -86,6 +87,7 @@ defmodule CLI do
             end
 
             loop(admin_pid)
+
           ["show", auction_id_text] ->
             case Integer.parse(auction_id_text) do
               {auction_id, ""} ->
@@ -102,6 +104,7 @@ defmodule CLI do
             end
 
             loop(admin_pid)
+
           ["bid", auction_id_text, user, amount_text] ->
             case {Integer.parse(auction_id_text), Integer.parse(amount_text)} do
               {{auction_id, ""}, {amount, ""}} ->
@@ -119,7 +122,7 @@ defmodule CLI do
 
             loop(admin_pid)
 
-            _command ->
+          _command ->
             IO.puts("Unknown command. Type help.")
             loop(admin_pid)
         end
@@ -127,9 +130,9 @@ defmodule CLI do
   end
 
   defp split_command(line) do
-  line
-  |> String.trim()
-  |> OptionParser.split()
+    line
+    |> String.trim()
+    |> OptionParser.split()
   rescue
     ArgumentError ->
       :invalid_command
