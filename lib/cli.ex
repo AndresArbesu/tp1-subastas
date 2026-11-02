@@ -134,7 +134,7 @@ defmodule CLI do
     |> String.trim()
     |> OptionParser.split()
   rescue
-    ArgumentError ->
+    _error in [ArgumentError, RuntimeError] ->
       :invalid_command
   end
 end
