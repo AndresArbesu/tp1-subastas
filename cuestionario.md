@@ -56,6 +56,8 @@ Para mitigar esto se puede limitar la cantidad de solicitudes pendientes, espera
 
 Un cliente puede enviar un pedido y dejar de esperar después de un plazo. Esa decisión ocurre en el cliente. El destinatario puede no haber comenzado, estar trabajando, haber terminado sin que la respuesta llegue todavía o haber terminado y dejado la respuesta pendiente. Un timeout no permite distinguir por sí solo esos casos.
 
+Dejar de esperar no elimina el pedido del mailbox del destinatario ni interrumpe o revierte una operación que ya comenzó.
+
 Los reintentos podrían generar problemas de idempotencia al ser interpretados como solicitudes nuevas y duplicar su efecto. Las respuestas tardías también pueden confundirse con una espera posterior si el patrón es demasiado amplio. 
 
 
@@ -63,11 +65,14 @@ Los reintentos podrían generar problemas de idempotencia al ser interpretados c
 
 ¿Qué significa que el envío de mensajes en Elixir sea asincrónico? ¿Qué diferencia hay entre enviar un mensaje, que el destinatario lo reciba y que termine de procesarlo?
 
-El término asincróico en este contexto significa principalmente que hay tres momentos que no ocurren necesariamente seguidos. El envío del mensaje, la llegada al destinatario y el procesamiento del mensaje. Cada uno ocurre de acuerdo a distintos eventos y no hay garantía de sincronicidad entre ellos. 
+El envío es asincrónico porque el proceso emisor puede continuar su ejecución sin esperar a que el destinatario procese el mensaje o le responda. Enviar, recibir y procesar son momentos distintos; que el envío haya retornado no confirma que la operación se haya realizado.
 
-En el primero, se realiza un `send(pid, message)` para enviar un pedido desde un proceso. Luego, en algún momento el destinatario lo recibirá y agregará a su cola de pedidos. Y por último, el destinatario lo procesará en la cola, asumiendo que habrá coincidencia. 
+En el primero, se realiza un `send(pid, message)` para enviar un pedido desde un proceso. Luego, eventualmente el destinatario lo recibirá (si es que no terminó el proceso) y agregará a su cola de pedidos. Y por último, el destinatario lo selecciona mediante receive, lo retira del mailbox y ejecuta la rama correspondiente.
 
 ## 10. Terminación de procesos
 
 ¿Qué ocurre con el estado y los mensajes pendientes de un proceso cuando termina? ¿Cómo puede otro proceso enterarse de su terminación y por qué sería útil conocerla?
 
+Cuando un proceso termina, se pierde su estado local y se descartan los mensajes que quedaron pendientes en su mailbox. 
+
+Otro proceso puede monitorearlo mediante `Process.monitor(pid)` y recibir un mensaje `:DOWN` con la referencia del monitor, el PID y el motivo de terminación. Esto sirve para detectar que ya no está disponible y decidir cómo actuar, por ejemplo informar un error, dejar de esperar una respuesta o eliminarlo de un registro.
