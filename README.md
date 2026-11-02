@@ -44,11 +44,18 @@ Usar comillas para productos o usuarios con espacios. El producto y el usuario n
 
 ## Ejemplo y guion reproducible de CLI
 
-Ejecutar desde una sesión nueva. Los comandos iniciales deben completarse antes de que venza la primera subasta; su duración es de 60 segundos.
+Ejecutar desde una sesión nueva. Los comandos iniciales deben completarse antes de que venza la primera subasta. Su duración es de 60 segundos.
 
 ```text
 > help
-[Se muestran los comandos disponibles.]
+Commands:
+  help
+  active
+  create "PRODUCT" INITIAL_PRICE DURATION_MS
+  show AUCTION_ID
+  bid AUCTION_ID USER AMOUNT
+  exit
+
 > create "Keyboard" 1000 60000
 Created auction 1.
 > active
@@ -60,7 +67,17 @@ Error: {:bid_too_low, 1200}
 > bid 1 bruno 1500
 Bid accepted.
 > show 1
-[Mapa de la subasta: estado :active, contador 2 y mayor oferta de bruno por 1500.]
+Auction: %{
+  id: 1,
+  status: :active,
+  result: nil,
+  highest_bid: %{user: "bruno", amount: 1500},
+  product_name: "Keyboard",
+  initial_price: 1000,
+  accepted_bids_count: 2,
+  expires_at: -576460691772,
+  duration_ms: 60000
+}
 > show 999
 Error: :auction_not_found
 > create "Monitor" 5000 0
@@ -73,13 +90,23 @@ Unknown command. Type help.
 1 | Keyboard | 1500 by bruno
 ```
 
-Las líneas entre corchetes son descripciones de los campos esperados, no salidas literales. `show` imprime un mapa completo; el orden de los campos y el valor del vencimiento no deben compararse como texto fijo. `expires_at` usa tiempo monotónico y puede ser negativo.
+Las salidas corresponden a una ejecución real. El orden de los campos del mapa puede variar y `expires_at` cambia entre ejecuciones porque usa tiempo monotónico. Su valor puede ser negativo.
 
 Esperar a que transcurran los 60 segundos desde la creación de Keyboard y continuar en la misma sesión:
 
 ```text
 > show 1
-[Mapa con estado :closed, contador 2 y result: %{winner: "bruno", final_price: 1500}.]
+Auction: %{
+  id: 1,
+  status: :closed,
+  result: %{final_price: 1500, winner: "bruno"},
+  highest_bid: %{user: "bruno", amount: 1500},
+  product_name: "Keyboard",
+  initial_price: 1000,
+  accepted_bids_count: 2,
+  expires_at: -576460691772,
+  duration_ms: 60000
+}
 > bid 1 carla 2000
 Error: :auction_closed
 > active
@@ -92,7 +119,17 @@ Esperar más de un segundo desde esta última creación:
 
 ```text
 > show 2
-[Mapa con estado :closed, contador 0 y result: %{winner: nil, final_price: nil}.]
+Auction: %{
+  id: 2,
+  status: :closed,
+  result: %{final_price: nil, winner: nil},
+  highest_bid: nil,
+  product_name: "No bids",
+  initial_price: 1000,
+  accepted_bids_count: 0,
+  expires_at: -576460690517,
+  duration_ms: 1000
+}
 > exit
 ```
 
